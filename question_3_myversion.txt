@@ -1,0 +1,421 @@
+const long long INF = 1e18;
+
+// ------------------------------------------------------------
+// Dijkstra: shortest distance from one source to all nodes
+// ------------------------------------------------------------
+vector<long long> dijkstra(
+    int source,
+    int N,
+    const vector<vector<pair<int, int>>>& graph
+) {
+    vector<long long> dist(N, INF);
+
+    priority_queue<
+        pair<long long, int>,
+        vector<pair<long long, int>>,
+        greater<pair<long long, int>>
+    > pq;
+
+    dist[source] = 0;
+    pq.push({0, source});
+
+    while (!pq.empty()) {
+        auto [d, u] = pq.top();
+        pq.pop();
+
+        if (d != dist[u])
+            continue;
+
+        for (auto [v, w] : graph[u]) {
+            if (dist[v] > d + w) {
+                dist[v] = d + w;
+                pq.push({dist[v], v});
+            }
+        }
+    }
+
+    return dist;
+}
+
+
+// ------------------------------------------------------------
+// Minimum route starting at 'start' and visiting all packages
+// in 'remaining' exactly once.
+//
+// destinations = package destinations
+// dist[i][j] = shortest distance between package i and j
+// ------------------------------------------------------------
+long long solveAfterSorting(
+    int startNode,
+    const vector<int>& remaining,
+    const vector<int>& destinations,
+    const vector<vector<long long>>& allDist
+) {
+    int m = remaining.size();
+
+    if (m == 0)
+        return 0;
+
+    // dp[mask][i]
+    // mask = packages already delivered
+    // i = last package delivered
+    vector<vector<long long>> dp(
+        1 << m,
+        vector<long long>(m, INF)
+    );
+
+    // First package
+    for (int i = 0; i < m; i++) {
+        int packageIndex = remaining[i];
+
+        dp[1 << i][i] =
+            allDist[startNode][destinations[packageIndex]];
+    }
+
+    // Add more packages
+    for (int mask = 0; mask < (1 << m); mask++) {
+
+        for (int i = 0; i < m; i++) {
+
+            if (!(mask & (1 << i)))
+                continue;
+
+            if (dp[mask][i] == INF)
+                continue;
+
+            int currentPackage = remaining[i];
+            int currentNode = destinations[currentPackage];
+
+            for (int j = 0; j < m; j++) {
+
+                if (mask & (1 << j))
+                    continue;
+
+                int nextPackage = remaining[j];
+                int nextNode = destinations[nextPackage];
+
+                int newMask = mask | (1 << j);
+
+                dp[newMask][j] =
+                    min(
+                        dp[newMask][j],
+                        dp[mask][i] +
+                        allDist[currentNode][nextNode]
+                    );
+            }
+        }
+    }
+
+    int fullMask = (1 << m) - 1;
+
+    long long answer = INF;
+
+    for (int i = 0; i < m; i++) {
+        answer = min(answer, dp[fullMask][i]);
+    }
+
+    return answer;
+}
+
+
+int question_three(
+    int N,
+    const vector<vector<int>>& edges,
+    int S,
+    int K,
+    const vector<int>& destinations
+) {
+
+// int question_three(
+//     int N,
+//     int E,
+//     int C,
+//     int S,
+//     const vector<tuple<int, int, int>>& edges,
+//     int K,
+//     const vector<int>& destinations
+// ) {
+    // --------------------------------------------------------
+    // Build graph
+    // --------------------------------------------------------
+    vector<vector<pair<int, int>>> graph(N);
+
+    for (auto [u, v, w] : edges) {
+        graph[u].push_back({v, w});
+        graph[v].push_back({u, w});
+    }
+
+    // --------------------------------------------------------
+    // Important nodes:
+    //
+    // 0               = Arrival Room
+    // K               = Sorting Room
+    // destinations[i] = package destinations
+    //
+    // We only need shortest paths involving these nodes.
+    // --------------------------------------------------------
+
+    vector<int> importantNodes;
+
+    importantNodes.push_back(0);
+    importantNodes.push_back(K);
+
+    for (int x : destinations)
+        importantNodes.push_back(x);
+
+    sort(importantNodes.begin(), importantNodes.end());
+    importantNodes.erase(
+        unique(importantNodes.begin(), importantNodes.end()),
+        importantNodes.end()
+    );
+
+    // --------------------------------------------------------
+    // allDist[u][v] = shortest distance between important nodes
+    // --------------------------------------------------------
+
+    vector<vector<long long>> allDist(
+        N,
+        vector<long long>(N, INF)
+    );
+
+    for (int source : importantNodes) {
+        vector<long long> d = dijkstra(source, N, graph);
+
+        for (int target : importantNodes) {
+            allDist[source][target] = d[target];
+        }
+    }
+
+    // --------------------------------------------------------
+    // Loading time
+    // --------------------------------------------------------
+
+    long long loadingTime = C;
+
+    long long answer = INF;
+
+    // --------------------------------------------------------
+    // Initial stack order is reverse of queue.
+    //
+    // queue:
+    //   destinations[0], destinations[1], ..., destinations[C-1]
+    //
+    // stack top:
+    //   destinations[C-1]
+    //
+    // If we directly deliver t packages, they are:
+    //
+    //   destinations[C-1]
+    //   destinations[C-2]
+    //   ...
+    // --------------------------------------------------------
+
+    long long directTravel = 0;
+
+    int currentNode = 0;
+
+    for (int delivered = 0; delivered <= C; delivered++) {
+
+        // ----------------------------------------------------
+        // At this point, 'delivered' packages have been
+        // delivered directly from the original stack.
+        //
+        // Remaining packages are:
+        // 0 ... C-delivered-1
+        // ----------------------------------------------------
+
+        vector<int> remaining;
+
+        for (int i = 0; i < C - delivered; i++) {
+            remaining.push_back(i);
+        }
+
+        long long total;
+
+        if (remaining.empty()) {
+
+            // No sorting needed.
+            total = loadingTime + directTravel;
+
+        } else {
+
+            // Go from current location to sorting room.
+            long long toSorting =
+                allDist[currentNode][K];
+
+            // Sort, then optimally deliver remaining packages.
+            long long afterSorting =
+                solveAfterSorting(
+                    K,
+                    remaining,
+                    destinations,
+                    allDist
+                );
+
+            total =
+                loadingTime
+                + directTravel
+                + toSorting
+                + S
+                + afterSorting;
+        }
+
+        answer = min(answer, total);
+
+        // ----------------------------------------------------
+        // Prepare for next possibility:
+        //
+        // Deliver one more package from the original stack.
+        // ----------------------------------------------------
+
+        if (delivered < C) {
+
+            int packageIndex = C - 1 - delivered;
+
+            int nextNode = destinations[packageIndex];
+
+            directTravel +=
+                allDist[currentNode][nextNode];
+
+            currentNode = nextNode;
+        }
+    }
+
+    return answer;
+}
+
+// int dijkstra(int n, vector<vector<pair<int,int>>>& graph,
+//              int source, int destination) {
+
+//     const int INF = 1000000000;
+//     vector<int> dist(n, INF);
+
+//     priority_queue<
+//         pair<int,int>,
+//         vector<pair<int,int>>,
+//         greater<pair<int,int>>
+//     > pq;
+
+//     dist[source] = 0;
+//     pq.push({0, source});
+
+//     while (!pq.empty()) {
+
+//         auto [currentDist, node] = pq.top();
+//         pq.pop();
+
+//         // Ignore outdated entry
+//         if (currentDist != dist[node])
+//             continue;
+
+//         // We have found the shortest distance
+//         if (node == destination)
+//             return currentDist;
+
+//         for (auto [neighbour, weight] : graph[node]) {
+
+//             int newDist = currentDist + weight;
+
+//             if (newDist < dist[neighbour]) {
+//                 dist[neighbour] = newDist;
+//                 pq.push({newDist, neighbour});
+//             }
+//         }
+//     }
+
+//     return -1; // destination is unreachable
+// }
+
+// int fact(int x){
+//     if(x==0 || x==1)
+//         return 1;
+//     else
+//         return x*fact(x-1);
+// }
+
+// int question_three(
+//     int N,
+//     const vector<vector<int>>& edges,
+//     int S,
+//     int K,
+//     const vector<int>& destinations
+// ) {
+//     //Adjecency list 
+//     // vector<vector<int>> graph(N, vector<int>(N, 0));
+//     // for(int i = 0; i < edges.size(); i++) {
+//     //     int u = edges[i][0];
+//     //     int v = edges[i][1];
+//     //     int w = edges[i][2];
+//     //     graph[u][v] = w;
+//     //     graph[v][u] = w;
+        
+//     // }
+//     stack<int> s;
+//     int time = destinations.size();
+//     int pos =0;
+//     vector<vector<pair<int, int>>> graph(N);
+//     for(vector<int> x: edges){
+//         graph[x[0]].push_back({x[1], x[2]});
+//         graph[x[1]].push_back({x[0], x[2]});
+//     }
+    
+//     // for(int i=0;i<graph.size();i++){
+//     //     for(int j=0;j<graph[i].size();j++){
+//     //         cout << graph[i][j] << " ";
+//     //     }
+//     //     cout << endl;
+//     // }
+//     for(int i=0; i<destinations.size(); i++){
+//         //time+=1;
+//         s.push(destinations[i]);
+        
+//     }
+//     int min=100000;
+//     vector<int> path=destinations;
+//     vector<int> best;
+//     sort(path.begin(), path.end());
+//     //cout<<next_permutation(path.begin(), path.end())<<endl;
+//     // for(int i = 0;i<fact(destinations.size());i++){
+//     //     for(int j=0;j<destinations.size();j++){}
+//     // }
+//     do{
+//         int current = 0;
+//         int time = 0;
+//         for(int x :path){
+//             time+=dijkstra(N, graph, current, x);
+//             current=x;
+//         }
+//         if(time < min){
+//             min = time;
+//             best = path;
+//         }
+//     }while(next_permutation(path.begin(), path.end()));
+//     if (best != destinations){
+//         min+=S;
+//     }
+//     min+=destinations.size();
+//     for(int x:best){
+//         cout << x << " ";
+//     }
+//     cout<<endl<<"Time: "<<min<<endl;
+
+//     // int p= dijkstra(N, graph, pos, destinations[i]);
+//     //     int q= dijkstra(N, graph, pos, destinations[i+1]);
+//     //     cout<< "P: " << p << endl;
+//     //     cout<< "Q: " << q << endl;
+//     //     if(p > q){
+//     //         // cout<<
+//     //         //continue;
+//     //     }
+//     //     else{
+//     //         time+=dijkstra(N, graph, pos, destinations[i]);
+//     //         pos=destinations[i];
+//     //     }
+//     //     cout<< "Time: " << time << endl;
+//     //     cout<< "Pos: " << pos << endl;
+//     // for(int x:destinations){
+//     //     cout << x << " ";
+//     // }
+//     return min;
+// }
+

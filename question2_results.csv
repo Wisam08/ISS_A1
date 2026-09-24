@@ -1,0 +1,13 @@
+n,case,time_ms
+100,balanced,0.01519
+100,sparse,0.00112
+500,balanced,0.079422
+500,sparse,0.006084
+1000,balanced,0.16039
+1000,sparse,0.013389
+2000,balanced,0.354797
+2000,sparse,0.033515
+5000,balanced,0.999624
+5000,sparse,0.09902
+10000,balanced,2.1459
+10000,sparse,0.298962

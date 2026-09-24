@@ -1,0 +1,179 @@
+#ifndef USER_CODE_H
+#define USER_CODE_H
+
+// Feel free to include more standard library header files
+// based on your requirements
+#include <vector>
+#include <string>
+#include <utility>
+#include <iostream>
+#include <algorithm>
+#include <queue>
+#include <map>
+#include <set>
+using namespace std;
+
+// Feel free to introduce more helper functions
+
+int question_one(const vector<int>& delta) {
+    // TODO: Implement function
+    int sum = delta[0];
+    int sum_global = delta[0];
+    
+    for(int i = 1; i< delta.size() ;i++){
+            sum=max(sum_global,max(delta[i],delta[i]+sum));
+            // if(sum > sum_global)
+                // sum_global=sum;
+    }
+    return sum_global;
+}
+
+void dfs(
+    int i,
+    int depth,
+    const vector<int>& values,
+    const vector<bool>& present,
+    vector<int>& path,
+    map<pair<int, vector<int>>, set<vector<int>>>& groups,
+    int& max_depth,
+    const vector<int>& leftChild,
+    const vector<int>& rightChild
+) {
+    if (i == -1 || !present[i])
+        return;
+
+    path.push_back(values[i]);
+
+    int left = leftChild[i];
+    int right = rightChild[i];
+
+    // bool hasLeft =
+    //     left < values.size() && present[left];
+
+    // bool hasRight =
+    //     right < values.size() && present[right];
+
+    if (left == -1 && right == -1) {
+        // We reached a leaf
+        vector<int> sorted_path = path;
+        sort(sorted_path.begin(), sorted_path.end());
+
+        auto& original_paths = groups[{depth, sorted_path}];
+        
+        if (!original_paths.empty() && original_paths.find(path) == original_paths.end()) {
+            // We found a twin leaf
+            max_depth = max(max_depth, depth);
+        }
+
+        original_paths.insert(path);
+ }
+
+    dfs(left, depth + 1, values, present, path, groups,
+        max_depth, leftChild, rightChild);
+    dfs(right, depth + 1, values, present, path, groups,
+        max_depth, leftChild, rightChild);
+
+    path.pop_back();
+}
+
+int question_two(const vector<int>& values, const vector<bool>& present) {
+    // TODO: Implement function
+    // vector<vector<vector<int>>> buckets;
+    //vector<int> path;
+    for(int x: values){
+        cout << x << " ";
+    }
+    cout << endl;
+    for(int y: present){
+        cout << y << " ";
+    }
+    cout << endl;
+
+    int n = values.size();
+
+    // Store the actual children of every node.
+    vector<int> leftChild(n, -1);
+    vector<int> rightChild(n, -1);
+
+    // Build tree from compact level-order representation.
+    if (n == 0 || !present[0])
+        return -1;
+
+    queue<int> q;
+    q.push(0);
+
+    int next = 1;
+
+    while (!q.empty() && next < n) {
+        int parent = q.front();
+        q.pop();
+
+        // Next token is left child
+        if (next < n) {
+            if (present[next]) {
+                leftChild[parent] = next;
+                q.push(next);
+            }
+            next++;
+        }
+
+        // Next token is right child
+        if (next < n) {
+            if (present[next]) {
+                rightChild[parent] = next;
+                q.push(next);
+            }
+            next++;
+        }
+    }
+
+// Groups:
+    // (depth, sorted path) -> set of original paths
+    map<pair<int, vector<int>>, set<vector<int>>> groups;
+
+    vector<int> path;
+    int max_depth = -1;
+    dfs(0, 0, values, present, path, groups,
+        max_depth, leftChild, rightChild);
+
+    // for (int depth = buckets.size() - 1; depth >= 0; depth--) {
+    //     for(int i = 0; i < buckets[depth].size(); i++){
+    //         vector<int> branch_copy = buckets[depth][i];
+    //         // vector<int> branch_copy = buckets[depth][i];
+    //         sort(branch_copy.begin(), branch_copy.end());
+            
+    //         for(int j=i+1; j< buckets[depth].size();j++){
+    //             vector<int> b = buckets[depth][j];
+    //             sort(b.begin(), b.end());
+    //             if(branch_copy == b && buckets[depth][j] != buckets[depth][i]){
+    //                 return depth;
+                        
+    //             }
+    //         }
+    //     }
+        //     if (branch_copy == branch){
+        //     if(max_depth < branch.size())
+        //         max_depth = branch.size()-1;
+        // }
+        // for(int i = 0; i < branch.size(); i++){
+        //     cout << branch[i] << " ";
+        // }
+        // cout << endl;
+
+   return max_depth;
+//    return 0;
+}
+
+int question_three(
+    int N,
+    const vector<vector<int>>& edges,
+    int S,
+    int K,
+    const vector<int>& destinations
+) {
+    // TODO: Implement function
+    return 0;
+}
+
+
+#endif // USER_CODE_H
